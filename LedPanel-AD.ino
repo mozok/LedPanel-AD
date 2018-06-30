@@ -1,5 +1,5 @@
 /*
-    LED Panel for Day Of Youth selebration
+    LED Panel for advertisment
 
     working on STM32F103 via ESP module
 
@@ -27,6 +27,7 @@ DMD dmd(DISPLAYS_ACROSS, DISPLAYS_DOWN);
 // const char time1[] = {"Поточний час\0"};       //1st row for time screen
 char time2[] = {"00:00\0"};       // current time from getTime
 long timerScreenChange = 0;       // timer for screen controll
+long timerScroll = 0;             //timer for scrolling string
 uint16_t screenChangeTime = 6000; // change screen every n seconds
 byte screen = 0;
 byte mode = 0;        //mode to show
@@ -35,7 +36,9 @@ byte lastMode = mode; //last mode shown
 // const byte imgTree[] = {0x00, 0x00, 0x00, 0x80, 0xe0, 0xb8, 0xf6, 0xfd, 0xee, 0xb8, 0xe0, 0x80, 0x00, 0x00, 0x00, 0x30, 0x78, 0xfe, 0xed, 0xff, 0xdf, 0xff, 0xfe, 0xf7, 0xbf, 0xfd, 0xff, 0xde, 0x78, 0x30};
 // const byte imgSnowMan[] = {0x40, 0x60, 0x80, 0x80, 0x00, 0x1c, 0x22, 0xc9, 0xcd, 0xc9, 0xc5, 0xc1, 0x22, 0x1c, 0x00, 0x80, 0x80, 0x60, 0x40, 0x00, 0x00, 0x00, 0x00, 0x1d, 0x22, 0x41, 0x80, 0x80, 0x80, 0x83, 0x80, 0x41, 0x22, 0x1d, 0x00, 0x00, 0x00, 0x00};
 byte imgToShow[] = {0x00, 0x00, 0xfc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x24, 0x24, 0x04, 0x04, 0x00, 0x00, 0xfc, 0x04, 0x88, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x05, 0x05, 0x05, 0xfd, 0x05, 0x04, 0x04, 0x01, 0xfd, 0xa5, 0xa5, 0x85, 0x00, 0x98, 0xa5, 0xa5, 0x44, 0x00, 0x04, 0x04, 0xfc, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-
+const char screenPrice[] = "Я коштую 1000 грн.\0"; //screen with site url
+char strToShow1[200];       //string to save custom msg
+char strToShow2[200];       //string to save custom msg
 /*--------------------------------------------------------------------------------------
   Interrupt handler for Timer1 (TimerOne) driven DMD refresh scanning, this gets
   called at the period set in Timer1.initialize();
@@ -230,8 +233,18 @@ void screenControll(void)
     }
     case 1:
     {
+
+        break;
+    }
+    case 2:
+    {
+
+        break;
+    }
+    case 3:
+    {
         dmd.clearScreen(true);
-        
+
         dmd.drawImg(0, 0, imgToShow, sizeof(imgToShow) / 2);
 
         break;
@@ -256,31 +269,31 @@ void modeSwitch(char *dataRes)
 
     switch (mode)
     {
-        case 0:
-        {
-            screen = 0;
-            // ESPGetTime();
-            // screenControll();
-            // timerScreenChange = millis();
-            timerScreenChange = millis();
-            screenChangeTime = 500;
+    case 0:
+    {
+        screen = 0;
+        // ESPGetTime();
+        // screenControll();
+        // timerScreenChange = millis();
+        timerScreenChange = millis();
+        screenChangeTime = 500;
 
-            break;
-        }
-        case 1:
-        {
-            pch = strtok(NULL, "#");
+        break;
+    }
+    case 1:
+    {
+        pch = strtok(NULL, "#");
 
-            // Serial2.println(pch);
+        // Serial2.println(pch);
 
-            strToHex(pch, imgToShow, sizeof(imgToShow));
-            
-            screen = 1;
-            screenControll();
-            // timerScreenChange = millis();
+        strToHex(pch, imgToShow, sizeof(imgToShow));
 
-            break;
-        }
+        screen = 1;
+        screenControll();
+        // timerScreenChange = millis();
+
+        break;
+    }
         // case 2:
         // {
         //     screen = 0;
@@ -297,14 +310,14 @@ void strToHex(char *str, byte *img, byte size)
     // Serial2.print("size: ");
     // Serial2.println(size);
 
-    for(int i = 0; i < size; i ++)
+    for (int i = 0; i < size; i++)
     {
         char c1 = *str;
         str++;
         char c2 = *str;
-        str++;    
+        str++;
 
-        *img = htoi(c1)*16+htoi(c2);
+        *img = htoi(c1) * 16 + htoi(c2);
 
         // Serial2.print(c1);
         // Serial2.print(c2);
@@ -312,13 +325,13 @@ void strToHex(char *str, byte *img, byte size)
         // Serial2.println(*img);
 
         img++;
-    } 
+    }
 }
 
 byte htoi(char c)
 {
     if (c <= '9')
-        return c-'0';
+        return c - '0';
     // if (c <= 'F');
     //     return c - 'A' + 10;
     if (c <= 'f')
