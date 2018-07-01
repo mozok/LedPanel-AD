@@ -2,12 +2,14 @@
     LED Panel for advertisment
 
     working on STM32F103 via ESP module
+    Topic: /ADPanel/command
     Package:
         mode#message
         mode:
             0 - show time
             1 - show text message
             2 - show image
+            10 - change brightness
 
     Developer: Mozok Evgen - mozokevgen@gmail.com
 */
@@ -94,7 +96,7 @@ void wifiCb(void *response)
 
 bool connected;
 
-char panel[] = "/DOYPanel/command\0"; //topic to subscribe, chage in setup() according to devID
+char panel[] = "/ADPanel/command\0"; //topic to subscribe, chage in setup() according to devID
 
 // Callback when MQTT is connected
 void mqttConnected(void *response)
@@ -160,7 +162,7 @@ void setup()
     SPI_2.begin();                          // Initialize the SPI_2 port.
     SPI_2.setBitOrder(MSBFIRST);            // Set the SPI_2 bit order
     SPI_2.setDataMode(SPI_MODE0);           // Set the  SPI_2 data mode 0
-    SPI_2.setClockDivider(SPI_CLOCK_DIV64); // Use a different speed to SPI 1
+    SPI_2.setClockDivider(SPI_CLOCK_DIV128); // Use a different speed to SPI 1
     pinMode(SPI2_NSS_PIN, OUTPUT);
 
     dmd.clearScreen(true); //true is normal (all pixels off), false is negative (all pixels on)
@@ -201,7 +203,7 @@ void loop()
         //clear/init the DMD pixels held in RAM
         dmd.clearScreen(true); //true is normal (all pixels off), false is negative (all pixels on)
         dmd.selectFont(UkrRusArial_14);
-        dmd.setBrightness(5000);
+        dmd.setBrightness(4000);
         ESPGetTime();
 
         // timerGetTime = millis();
@@ -331,6 +333,8 @@ void modeSwitch(char *dataRes)
             screen = 2;
         }
 
+        screenControll();
+
         break;
     }
     case 2: //show only custom image
@@ -345,6 +349,14 @@ void modeSwitch(char *dataRes)
         screen = 3;
         screenControll();
         // timerScreenChange = millis();
+
+        break;
+    }
+    case 10:
+    {
+        pch = strtok(NULL, "#");
+        uint16_t brightness = atoi(pch);
+        dmd.setBrightness(brightness);
 
         break;
     }
@@ -421,7 +433,10 @@ void ESPGetTime(void)
     dmd.selectFont(UkrRusArial_14);
 
     // dmd.drawString(12, 0, time1, /*sizeof(time1) / sizeof(*time1)*/ strlen(time1), GRAPHICS_NORMAL);
-    dmd.drawString(2, 2, time2, /*sizeof(time2) / sizeof(*time2)*/ strlen(time2), GRAPHICS_NORMAL);
+    uint16_t lngthTime = dmd.stringWidth(time2, strlen(time2));
+    uint8_t xPos = ((DISPLAYS_ACROSS * DMD_PIXELS_ACROSS) - lngthTime) / 2;
+
+    dmd.drawString(xPos, 2, time2, /*sizeof(time2) / sizeof(*time2)*/ strlen(time2), GRAPHICS_NORMAL);
 }
 
 /*
