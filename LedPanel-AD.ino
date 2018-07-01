@@ -2,6 +2,12 @@
     LED Panel for advertisment
 
     working on STM32F103 via ESP module
+    Package:
+        mode#message
+        mode:
+            0 - show time
+            1 - show text message
+            2 - show image
 
     Developer: Mozok Evgen - mozokevgen@gmail.com
 */
@@ -25,20 +31,23 @@ SPIClass SPI_2(2);
 DMD dmd(DISPLAYS_ACROSS, DISPLAYS_DOWN);
 
 // const char time1[] = {"Поточний час\0"};       //1st row for time screen
-char time2[] = {"00:00\0"};       // current time from getTime
-long timerScreenChange = 0;       // timer for screen controll
-long timerScroll = 0;             //timer for scrolling string
+char time2[] = {"00:00\0"}; // current time from getTime
+long timerScreenChange = 0; // timer for screen controll
+long timerScroll = 0;       //timer for scrolling string
+uint8_t scrollSpeed = 40;
 uint16_t screenChangeTime = 6000; // change screen every n seconds
 byte screen = 0;
 byte mode = 0;        //mode to show
 byte lastMode = mode; //last mode shown
+bool flagScroll = false;
+uint16_t lngth; //Length of custom msg
 
 // const byte imgTree[] = {0x00, 0x00, 0x00, 0x80, 0xe0, 0xb8, 0xf6, 0xfd, 0xee, 0xb8, 0xe0, 0x80, 0x00, 0x00, 0x00, 0x30, 0x78, 0xfe, 0xed, 0xff, 0xdf, 0xff, 0xfe, 0xf7, 0xbf, 0xfd, 0xff, 0xde, 0x78, 0x30};
 // const byte imgSnowMan[] = {0x40, 0x60, 0x80, 0x80, 0x00, 0x1c, 0x22, 0xc9, 0xcd, 0xc9, 0xc5, 0xc1, 0x22, 0x1c, 0x00, 0x80, 0x80, 0x60, 0x40, 0x00, 0x00, 0x00, 0x00, 0x1d, 0x22, 0x41, 0x80, 0x80, 0x80, 0x83, 0x80, 0x41, 0x22, 0x1d, 0x00, 0x00, 0x00, 0x00};
 byte imgToShow[] = {0x00, 0x00, 0xfc, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xfc, 0x24, 0x24, 0x04, 0x04, 0x00, 0x00, 0xfc, 0x04, 0x88, 0x70, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x05, 0x05, 0x05, 0xfd, 0x05, 0x04, 0x04, 0x01, 0xfd, 0xa5, 0xa5, 0x85, 0x00, 0x98, 0xa5, 0xa5, 0x44, 0x00, 0x04, 0x04, 0xfc, 0x04, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 const char screenPrice[] = "Я коштую 1000 грн.\0"; //screen with site url
-char strToShow1[200];       //string to save custom msg
-char strToShow2[200];       //string to save custom msg
+char customMsg[200];                               //string to save custom msg
+// char strToShow2[200];       //string to save custom msg
 /*--------------------------------------------------------------------------------------
   Interrupt handler for Timer1 (TimerOne) driven DMD refresh scanning, this gets
   called at the period set in Timer1.initialize();
@@ -172,6 +181,7 @@ void setup()
 }
 
 bool initialStart = true;
+bool isScreenCleared = true;
 
 void loop()
 {
@@ -211,6 +221,14 @@ void loop()
                 timerScreenChange = currentMillis;
             }
         }
+        else
+        {
+            if (flagScroll && ((timerScroll + scrollSpeed) < currentMillis))
+            {
+                dmd.stepMarquee(-1, 0);
+                timerScroll = currentMillis;
+            }
+        }
 
         // if (currentMillis - timerScreenChange > screenChangeTime)
         // {
@@ -218,6 +236,12 @@ void loop()
 
         //     timerScreenChange = currentMillis;
         // }
+        isScreenCleared = false;
+    }
+    else if (!connected && !isScreenCleared)
+    {
+        isScreenCleared = true;
+        dmd.clearScreen(true);
     }
 }
 
@@ -233,11 +257,19 @@ void screenControll(void)
     }
     case 1:
     {
+        // flagScroll = false;
+        // dmd.selectFont(UkrRusArial_14);
+        dmd.clearScreen(true);
+        uint8_t xPos = ((DISPLAYS_ACROSS * DMD_PIXELS_ACROSS) - lngth) / 2;
+        dmd.drawString(xPos, 1, customMsg, strlen(customMsg), GRAPHICS_NORMAL);
 
         break;
     }
     case 2:
     {
+        dmd.clearScreen(true);
+        dmd.drawMarquee(customMsg, strlen(customMsg), (32 * DISPLAYS_ACROSS) - 1, 1);
+        timerScroll = millis();
 
         break;
     }
@@ -251,12 +283,12 @@ void screenControll(void)
     }
     }
 
-    screen++;
+    // screen++;
 
-    if (screen >= 2)
-    {
-        screen = 0;
-    }
+    // if (screen >= 2)
+    // {
+    //     screen = 0;
+    // }
 }
 
 void modeSwitch(char *dataRes)
@@ -269,8 +301,9 @@ void modeSwitch(char *dataRes)
 
     switch (mode)
     {
-    case 0:
+    case 0: //show only time
     {
+        flagScroll = false;
         screen = 0;
         // ESPGetTime();
         // screenControll();
@@ -280,28 +313,41 @@ void modeSwitch(char *dataRes)
 
         break;
     }
-    case 1:
+    case 1: //show custom text message
     {
+        pch = strtok(NULL, "#");
+        flagScroll = false;
+        screen = 1;
+
+        strChange(pch, customMsg);
+
+        dmd.selectFont(UkrRusArial_14);
+
+        lngth = dmd.stringWidth(customMsg, strlen(customMsg));
+
+        if (lngth > 32)
+        {
+            flagScroll = true;
+            screen = 2;
+        }
+
+        break;
+    }
+    case 2: //show only custom image
+    {
+        flagScroll = false;
         pch = strtok(NULL, "#");
 
         // Serial2.println(pch);
 
         strToHex(pch, imgToShow, sizeof(imgToShow));
 
-        screen = 1;
+        screen = 3;
         screenControll();
         // timerScreenChange = millis();
 
         break;
     }
-        // case 2:
-        // {
-        //     screen = 0;
-        //     screenControll();
-        //     timerScreenChange = millis();
-
-        //     break;
-        // }
     }
 }
 
